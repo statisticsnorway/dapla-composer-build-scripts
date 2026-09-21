@@ -24,7 +24,7 @@ the tests have passed and that the PR is ready for approval.
 #### PR approved (pull_request_review event)
 
 When a PR is approved, the tests are run again. If they succeed, an `atlantis apply` comment is posted by the action,
-deploying the infrastructure needed for `python_yaml`.
+deploying the infrastructure needed for `python-image.yaml`.
 
 #### Push to main (push event)
 
