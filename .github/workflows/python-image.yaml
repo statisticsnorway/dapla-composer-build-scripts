@@ -59,8 +59,8 @@ jobs:
           esac
           echo "builder=${BUILDER}" >> "$GITHUB_OUTPUT"
 
-          # --- PACKAGES / dependencies from toml (as JSON, multiline-safe) ---
-          DEPS=$(yq -p toml -o=json '.project.dependencies' "$PYPROJECT")
+          # --- PACKAGES / dependencies from toml (compact single-line JSON) ---
+          DEPS=$(yq -p toml -o=json -I=0 '.project.dependencies' "$PYPROJECT")
           echo "dependencies=${DEPS}" >> "$GITHUB_OUTPUT"
           echo "Resolved deps: ${DEPS}"
 
