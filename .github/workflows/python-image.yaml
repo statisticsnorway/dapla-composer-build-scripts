@@ -1,0 +1,97 @@
+name: Build and Push Python Docker Image
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  push:
+    branches:
+      - py313-flow
+  workflow_dispatch:
+env:
+  AR_PROJECT_ID: artifact-registry-5n
+  AR_LOCATION: europe-north1
+  IMAGE_NAME: automation/composer/python
+  GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
+  # AR_REPOSITORY and GCP_SERVICE_ACCOUNT are derived from team_name at runtime
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Resolve team name, repo and service account
+        run: |
+          TEAM_NAME=$(yq '.metadata.team_name' metadata/team-info.yaml)
+          echo "AR_REPOSITORY=${TEAM_NAME}-docker" >> "$GITHUB_ENV"
+          echo "GCP_SERVICE_ACCOUNT=gh-actions-${TEAM_NAME}@artifact-registry-5n.iam.gserviceaccount.com" >> "$GITHUB_ENV"
+          echo "Resolved team='${TEAM_NAME}'"
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Set up pack CLI
+        uses: buildpacks/github-actions/setup-pack@e3b14c6e906f91da358e01dc2849ce068188107f # v5.12.5
+
+      - name: Resolve Python version and builder
+        run: |
+          PYPROJECT_DIR="automation/composer/python"
+
+          # Parse the requested Python version from the task's pyproject.toml
+          REQ=$(yq '.project.requires-python' "${PYPROJECT_DIR}/pyproject.toml")
+          PYVER=$(echo "$REQ" | grep -oE '3\.[0-9]+' | head -1)
+          echo "Requested Python: '${PYVER}' (from requires-python='${REQ}')"
+
+          if [ -z "$PYVER" ]; then
+            echo "::error::Could not parse a Python version from requires-python='${REQ}' in ${PYPROJECT_DIR}/pyproject.toml"
+            exit 1
+          fi
+
+          # Map the requested Python version to the correct buildpack builder
+          case "$PYVER" in
+            3.11|3.12|3.13) BUILDER="gcr.io/buildpacks/builder:google-22" ;;
+            3.14)           BUILDER="gcr.io/buildpacks/builder:latest" ;;
+            *)
+              echo "::error::Python ${PYVER} is not supported. Supported: 3.11, 3.12, 3.13 (google-22), 3.14 (latest)"
+              exit 1
+              ;;
+          esac
+          echo "Using builder: ${BUILDER}"
+
+          echo "PYPROJECT_DIR=${PYPROJECT_DIR}" >> "$GITHUB_ENV"
+          echo "BUILDER=${BUILDER}" >> "$GITHUB_ENV"
+          echo "PYVER=${PYVER}" >> "$GITHUB_ENV"
+
+      - name: Build image
+        run: |
+          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPOSITORY}/${IMAGE_NAME}"
+          pack build "${IMAGE}:latest" \
+            --tag "${IMAGE}:${PYVER}" \
+            --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \
+            --builder "${BUILDER}" \
+            --env "GOOGLE_RUNTIME_VERSION=${PYVER}" \
+            --path "${PYPROJECT_DIR}"
+          echo "Built Python version:"
+          docker run --rm --entrypoint launcher "${IMAGE}:latest" python3 --version
+      - name: Push image to Artifact Registry
+        run: |
+          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPOSITORY}/${IMAGE_NAME}"
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${PYVER}"
+          docker push "${IMAGE}:${PYVER}-${GITHUB_SHA}"
