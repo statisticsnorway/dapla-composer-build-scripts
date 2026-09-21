@@ -6,9 +6,6 @@ on:
       pyproject_dir:
         required: true
         type: string
-      image_name:
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -83,11 +80,12 @@ jobs:
 
       - name: Build and push
         env:
-          PYVER:   ${{ needs.resolve.outputs.pyver }}
-          BUILDER: ${{ needs.resolve.outputs.builder }}
-          AR_REPO: ${{ needs.resolve.outputs.ar_repository }}
+          PYVER:      ${{ needs.resolve.outputs.pyver }}
+          BUILDER:    ${{ needs.resolve.outputs.builder }}
+          AR_REPO:    ${{ needs.resolve.outputs.ar_repository }}
+          IMAGE_NAME: automation/composer/python
         run: |
-          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${{ inputs.image_name }}"
+          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
           pack build "${IMAGE}:latest" \
             --tag "${IMAGE}:${PYVER}" \
             --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \

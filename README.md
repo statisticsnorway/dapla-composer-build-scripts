@@ -30,9 +30,10 @@ and shares the same two jobs and environment.
 | Input        | Required | Description                                                     |
 |--------------|----------|-----------------------------------------------------------------|
 | `<src>_dir`  | yes      | Path to the directory containing the language manifest/source.  |
-| `image_name` | yes      | Name of the image to publish to the team's Artifact Registry.   |
 
-For `python-image.yaml` the source input is `pyproject_dir`.
+For `python-image.yaml` the source input is `pyproject_dir`. The published image
+name is fixed per workflow (Python: `automation/composer/python`), so it is not a
+workflow input.
 
 #### Environment
 
@@ -91,7 +92,6 @@ jobs:
     uses: statisticsnorway/dapla-composer-build-scripts/.github/workflows/python-image.yaml@python-image-v1.0.0
     with:
       pyproject_dir: automation/composer/python
-      image_name: my-source
     permissions:
       contents: read
       id-token: write
