@@ -2,10 +2,6 @@ name: Build and Push Python Docker Image
 
 on:
   workflow_call:
-    inputs:
-      pyproject_dir:
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -15,6 +11,7 @@ env:
   AR_PROJECT_ID: artifact-registry-5n
   AR_LOCATION: europe-north1
   GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
+  PYPROJECT_DIR: automation/composer/python
 
 jobs:
 
@@ -32,7 +29,7 @@ jobs:
       - name: Resolve from toml + team-info
         id: vars
         run: |
-          PYPROJECT="${{ inputs.pyproject_dir }}/pyproject.toml"
+          PYPROJECT="${PYPROJECT_DIR}/pyproject.toml"
 
           # --- TEAM (like kildomaten reads team_uniform_name) ---
           TEAM_NAME=$(yq '.metadata.team_name' metadata/team-info.yaml)
@@ -91,7 +88,7 @@ jobs:
             --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \
             --builder "${BUILDER}" \
             --env "GOOGLE_RUNTIME_VERSION=${PYVER}" \
-            --path "${{ inputs.pyproject_dir }}"
+            --path "${PYPROJECT_DIR}"
           docker push "${IMAGE}:latest"
           docker push "${IMAGE}:${PYVER}"
           docker push "${IMAGE}:${PYVER}-${GITHUB_SHA}"

@@ -27,24 +27,22 @@ and shares the same two jobs and environment.
 
 #### Inputs
 
-| Input        | Required | Description                                                     |
-|--------------|----------|-----------------------------------------------------------------|
-| `<src>_dir`  | yes      | Path to the directory containing the language manifest/source.  |
-
-For `python-image.yaml` the source input is `pyproject_dir`. The published image
-name is fixed per workflow (Python: `automation/composer/python`), so it is not a
-workflow input.
+The image workflows take **no inputs**. The source directory is hardcoded via the
+workflow-level `PYPROJECT_DIR` env variable (Python: `automation/composer/python`),
+and the published image name is fixed per workflow (Python:
+`automation/composer/python`).
 
 #### Environment
 
 The following values are configured as workflow-level `env` and drive where the
-image is published and how authentication happens:
+source is read from, where the image is published, and how authentication happens:
 
 | Variable           | Value                                                                                            |
 |--------------------|--------------------------------------------------------------------------------------------------|
 | `AR_PROJECT_ID`    | `artifact-registry-5n`                                                                            |
 | `AR_LOCATION`      | `europe-north1`                                                                                   |
 | `GCP_WIF_PROVIDER` | Workload Identity Federation provider used to authenticate to Google Cloud (keyless, OIDC-based). |
+| `PYPROJECT_DIR`    | Path to the directory containing the language manifest/source (`automation/composer/python`). |
 
 #### Job: `resolve`
 
@@ -90,12 +88,14 @@ metadata/team-info.yaml   # contains metadata.team_name (used by every language)
 jobs:
   build-image:
     uses: statisticsnorway/dapla-composer-build-scripts/.github/workflows/python-image.yaml@python-image-v1.0.0
-    with:
-      pyproject_dir: automation/composer/python
     permissions:
       contents: read
       id-token: write
 ```
+
+> The source directory is hardcoded in the workflow via `PYPROJECT_DIR`. If your
+> manifest is not at the repository root, set `PYPROJECT_DIR` accordingly in the
+> workflow.
 
 ## Adding a new language image
 
@@ -104,8 +104,8 @@ workflow the same way `python-image.yaml` is built:
 
 1. Copy `.github/workflows/python-image.yaml` to
    `.github/workflows/r-image.yaml`.
-2. Rename the source input (e.g. `pyproject_dir` → `description_dir`) and point
-   it at the R manifest (`DESCRIPTION` / `renv.lock`).
+2. Rename the source env variable (e.g. `PYPROJECT_DIR` → `DESCRIPTION_DIR`) and
+   point it at the R manifest (`DESCRIPTION` / `renv.lock`).
 3. In the `resolve` job, keep the **Team** block unchanged and replace only the
    language-specific parts: how the runtime version is parsed and how it maps to
    a Buildpacks `builder`.
