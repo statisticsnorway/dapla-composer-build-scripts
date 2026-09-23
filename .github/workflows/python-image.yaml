@@ -11,7 +11,7 @@ env:
   AR_PROJECT_ID: artifact-registry-5n
   AR_LOCATION: europe-north1
   GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
-  PYPROJECT_DIR: automation/composer/python
+  PYPROJECT_DIR: automation/composer/python/pyproject_dir
 
 jobs:
 
