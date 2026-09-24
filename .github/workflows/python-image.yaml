@@ -11,7 +11,7 @@ env:
   AR_PROJECT_ID: artifact-registry-5n
   AR_LOCATION: europe-north1
   GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
-  PYPROJECT_DIR: .
+
 jobs:
 
   resolve:
@@ -28,7 +28,7 @@ jobs:
       - name: Resolve from toml + team-info
         id: vars
         run: |
-          PYPROJECT="${PYPROJECT_DIR}/pyproject.toml"
+          PYPROJECT="pyproject.toml"
 
           # --- TEAM (like kildomaten reads team_uniform_name) ---
           TEAM_NAME=$(yq '.metadata.team_name' metadata/team-info.yaml)
@@ -87,7 +87,7 @@ jobs:
             --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \
             --builder "${BUILDER}" \
             --env "GOOGLE_RUNTIME_VERSION=${PYVER}" \
-            --path "${PYPROJECT_DIR}"
+            --path .
           docker push "${IMAGE}:latest"
           docker push "${IMAGE}:${PYVER}"
           docker push "${IMAGE}:${PYVER}-${GITHUB_SHA}"
