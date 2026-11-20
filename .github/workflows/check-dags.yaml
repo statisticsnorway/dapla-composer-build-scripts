@@ -18,7 +18,7 @@ jobs:
         with:
           repository: statisticsnorway/dapla-composer-build-scripts
           path: dapla-composer-build-scripts
-          sparse-checkout: validate
+          sparse-checkout: check-dags
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -37,8 +37,8 @@ jobs:
               echo "Skipping unchanged $dags_directory"
               continue
             fi
-            echo "Testing $dags_directory"
-            python dapla-composer-build-scripts/validate/validate_dags.py --dags_directory="$dags_directory"
+            echo "Checking $dags_directory"
+            python dapla-composer-build-scripts/check-dags/validate_dags.py --dags_directory="$dags_directory"
             if [ -d "$dags_directory/test" ]; then
               (cd "$dags_directory" && python -m pytest -s test/)
             fi
