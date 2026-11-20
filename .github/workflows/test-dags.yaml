@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
@@ -28,8 +30,13 @@ jobs:
       - name: Test DAGs
         run: |
           set -euo pipefail
+          git fetch origin "${{ github.base_ref }}"
           for dags_directory in automation/statomaten/*/dags; do
             [ -d "$dags_directory" ] || continue
+            if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "$dags_directory"; then
+              echo "Skipping unchanged $dags_directory"
+              continue
+            fi
             echo "Testing $dags_directory"
             python dapla-composer-build-scripts/test-dags/validate_dags.py --dags_directory="$dags_directory"
             if [ -d "$dags_directory/test" ]; then
