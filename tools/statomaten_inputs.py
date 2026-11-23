@@ -35,7 +35,7 @@ def outputs():
         "should_build_image": str(git_diff("pyproject.toml")).lower(),
         "should_test_dags": str(bool(_changed_dag_folders)).lower(),
         "folders_with_changed_dags": " ".join(_changed_dag_folders),
-        "python_version": python_version(),
+        "python_version": str(python_version()),
         "builder": builder(),
         "ar_repository": f"{team_name()}-docker",
         "service_account": service_account(),
@@ -59,28 +59,29 @@ def pyproject():
 def python_version():
     requirement = SpecifierSet(pyproject()["project"]["requires-python"])
     supported_versions = builders().keys()
-    for version in supported_versions:
-        if Version(version) in requirement:
-            return version  # return the highest compatible python version
-    raise ValueError(
-        f"No supported Python version satisfies requires-python={requirement!s}"
-    )
+    compatible_versions = (version for version in supported_versions if version in requirement) #intersection of requirement range and supported versions
+    try:
+        return max(compatible_versions)
+    except ValueError as error:
+        raise ValueError(
+            f"No supported Python version satisfies requires-python={requirement!s}"
+        ) from error
 
 
 def builder():
     version = python_version()
     try:
-        return builders()[version]
+        return builders()[Version(version)]
     except KeyError as error:
         raise ValueError(f"Python {version} is not supported") from error
 
 
 def builders():
     return {
-        "3.14": "gcr.io/buildpacks/builder:latest",
-        "3.13": "gcr.io/buildpacks/builder:google-22",
-        "3.12": "gcr.io/buildpacks/builder:google-22",
-        "3.11": "gcr.io/buildpacks/builder:google-22",
+        Version("3.14"): "gcr.io/buildpacks/builder:latest",
+        Version("3.13"): "gcr.io/buildpacks/builder:google-22",
+        Version("3.12"): "gcr.io/buildpacks/builder:google-22",
+        Version("3.11"): "gcr.io/buildpacks/builder:google-22",
     }
 
 
