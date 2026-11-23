@@ -5,6 +5,12 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  AR_PROJECT_ID: artifact-registry-5n
+  AR_LOCATION: europe-north1
+  GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
 
 jobs:
   statomaten_inputs:
@@ -55,4 +61,38 @@ jobs:
             if [ -d "$dags_directory/test" ]; then
               (cd "$dags_directory" && python -m pytest -s test/)
             fi
-          done
+
+  build_and_push:
+    needs: [resolve]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ needs.resolve.outputs.service_account }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: buildpacks/github-actions/setup-pack@a96fc9720ee9ccf19d4c87c3de9c344a2c404c29 # v6.2.0
+
+      - name: Build and push
+        env:
+          PYVER:      ${{ needs.resolve.outputs.pyver }}
+          BUILDER:    ${{ needs.resolve.outputs.builder }}
+          AR_REPO:    ${{ needs.resolve.outputs.ar_repository }}
+          IMAGE_NAME: automation/composer/python
+        run: |
+          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          pack build "${IMAGE}:latest" \
+            --tag "${IMAGE}:${PYVER}" \
+            --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \
+            --builder "${BUILDER}" \
+            --env "GOOGLE_RUNTIME_VERSION=${PYVER}" \
+            --path .
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${PYVER}"
+          docker push "${IMAGE}:${PYVER}-${GITHUB_SHA}"         done
