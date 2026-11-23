@@ -7,8 +7,54 @@ permissions:
   contents: read
 
 jobs:
+  workflow-gatekeeper:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build_image: ${{ steps.changed-files.outputs.should_build_image }}
+      should_test_dags: ${{ steps.changed-files.outputs.should_test_dags }}
+      folders_with_changed_dags: ${{ steps.changed-files.outputs.folders_with_changed_dags }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check changed files
+        id: changed-files
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            base_sha="${{ github.event.before }}"
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+          else
+            base_sha="HEAD^"
+          fi
+
+          if git diff --quiet "$base_sha" "$GITHUB_SHA" -- pyproject.toml; then
+            should_build_image=false
+          else
+            should_build_image=true
+          fi
+
+          folders_with_changed_dags=""
+          for dags_directory in automation/statomaten/*/dags; do
+            [ -d "$dags_directory" ] || continue
+            if ! git diff --quiet "$base_sha" "$GITHUB_SHA" -- "$dags_directory"; then
+              folders_with_changed_dags+="$dags_directory "
+            fi
+          done
+
+          should_test_dags=false
+          if [ -n "$folders_with_changed_dags" ]; then
+            should_test_dags=true
+          fi
+
+          echo "should_build_image=$should_build_image" >> "$GITHUB_OUTPUT"
+          echo "should_test_dags=$should_test_dags" >> "$GITHUB_OUTPUT"
+          echo "folders_with_changed_dags=$folders_with_changed_dags" >> "$GITHUB_OUTPUT"
+
   check-dags:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && needs.workflow-gatekeeper.outputs.should_test_dags == 'true' }}
+    needs: [workflow-gatekeeper]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,13 +74,7 @@ jobs:
       - name: Check DAGs
         run: |
           set -euo pipefail
-          git fetch origin "${{ github.base_ref }}"
-          for dags_directory in automation/statomaten/*/dags; do
-            [ -d "$dags_directory" ] || continue
-            if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "$dags_directory"; then
-              echo "Skipping unchanged $dags_directory"
-              continue
-            fi
+          for dags_directory in ${{ needs.workflow-gatekeeper.outputs.folders_with_changed_dags }}; do
             echo "Checking $dags_directory"
             python dapla-composer-build-scripts/check-dags/validate_dags.py --dags_directory="$dags_directory"
             if [ -d "$dags_directory/test" ]; then
