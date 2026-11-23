@@ -16,6 +16,7 @@ Performs import validation, structure validation, and checks for common issues.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -239,13 +240,22 @@ def main():
     parser.add_argument(
         "--dags_directory",
         required=True,
-        help="Path to the directory containing DAG files",
+        nargs="+",
+        help="Paths to directories containing DAG files",
     )
 
     args = parser.parse_args()
-
-    validator = DAGValidator(args.dags_directory)
-    success = validator.validate_all()
+    success = True
+    for directory in args.dags_directory:
+        directory_success = DAGValidator(directory).validate_all()
+        if directory_success and (Path(directory) / "test").is_dir():
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", "-s", "test/"],
+                cwd=directory,
+                check=False,
+            )
+            directory_success = result.returncode == 0
+        success = directory_success and success
 
     sys.exit(0 if success else 1)
 
