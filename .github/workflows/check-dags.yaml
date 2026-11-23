@@ -1,0 +1,42 @@
+name: Check DAGs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-dags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Clone check scripts
+        run: git clone -b main --depth 1 https://github.com/statisticsnorway/dapla-composer-build-scripts
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+
+      - name: Install check dependencies
+        run: python -m pip install -r dapla-composer-build-scripts/check-dags/requirements.txt
+
+      - name: Check DAGs
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref }}"
+          for dags_directory in automation/statomaten/*/dags; do
+            [ -d "$dags_directory" ] || continue
+            if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "$dags_directory"; then
+              echo "Skipping unchanged $dags_directory"
+              continue
+            fi
+            echo "Checking $dags_directory"
+            python dapla-composer-build-scripts/check-dags/validate_dags.py --dags_directory="$dags_directory"
+            if [ -d "$dags_directory/test" ]; then
+              (cd "$dags_directory" && python -m pytest -s test/)
+            fi
+          done
