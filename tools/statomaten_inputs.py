@@ -58,7 +58,7 @@ def pyproject():
 
 def python_version():
     requirement = SpecifierSet(pyproject()["project"]["requires-python"])
-    supported_versions = builders()
+    supported_versions = builders().keys()
     for version in supported_versions:
         if Version(version) in requirement:
             return version  # return the highest compatible python version
