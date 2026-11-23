@@ -238,7 +238,7 @@ def main():
         description="Validate DAG files before uploading to Cloud Composer"
     )
     parser.add_argument(
-        "--dags_directory",
+        "--dag-directories",
         required=True,
         nargs="+",
         help="Paths to directories containing DAG files",
@@ -246,7 +246,7 @@ def main():
 
     args = parser.parse_args()
     success = True
-    for directory in args.dags_directory:
+    for directory in args.dag_directories:
         directory_success = DAGValidator(directory).validate_all()
         if directory_success and (Path(directory) / "test").is_dir():
             result = subprocess.run(

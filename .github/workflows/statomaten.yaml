@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/check-dags/check_dags.py \
-            --dags_directory ${{ needs.statomaten_inputs.outputs.folders_with_changed_dags }}
+            --dag-directories ${{ needs.statomaten_inputs.outputs.folders_with_changed_dags }}
 
   build_and_push:
     if: ${{ needs.statomaten_inputs.outputs.should_build_image == 'true' }}
