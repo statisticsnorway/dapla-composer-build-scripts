@@ -47,7 +47,6 @@ jobs:
 
       - name: Check DAGs
         run: |
-          set -euo pipefail
           uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/check-dags/check_dags.py \
             --dag-directories ${{ needs.statomaten_inputs.outputs.folders_with_changed_dags }}
 
