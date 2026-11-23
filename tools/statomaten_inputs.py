@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.14"
-# dependencies = ["packaging"]
+# dependencies = ["packaging", "pyyaml"]
 # ///
 
 import json
@@ -10,6 +10,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
@@ -25,9 +26,7 @@ def main():
 def write_outputs():
     output_file = os.environ["GITHUB_OUTPUT"]
     with Path(output_file).open("a", encoding="utf-8") as file:
-        file.writelines(
-            f"{name}={value}\n" for name, value in outputs().items()
-        )
+        file.writelines(f"{name}={value}\n" for name, value in outputs().items())
 
 
 def outputs():
@@ -39,7 +38,18 @@ def outputs():
         "python_version": python_version(),
         "builder": builder(),
         "dependencies": packages(),
+        "ar_repository": f"{team_name()}-docker",
+        "service_account": service_account(),
     }
+
+
+def team_name():
+    with Path("metadata/team-info.yaml").open(encoding="utf-8") as file:
+        return yaml.safe_load(file)["metadata"]["team_name"]
+
+
+def service_account():
+    return f"gh-actions-{team_name()}@{os.environ['AR_PROJECT_ID']}.iam.gserviceaccount.com"
 
 
 def pyproject():
@@ -58,7 +68,7 @@ def python_version():
     supported_versions = builders()
     for version in supported_versions:
         if Version(version) in requirement:
-            return version # return the highest compatible python version
+            return version  # return the highest compatible python version
     raise ValueError(
         f"No supported Python version satisfies requires-python={requirement!s}"
     )
