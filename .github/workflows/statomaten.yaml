@@ -19,7 +19,7 @@ jobs:
       should_build_image: ${{ steps.inputs.outputs.should_build_image }}
       should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
       folders_with_changed_dags: ${{ steps.inputs.outputs.folders_with_changed_dags }}
-      pyver: ${{ steps.inputs.outputs.pyver }}
+      python_version: ${{ steps.inputs.outputs.python_version }}
       builder: ${{ steps.inputs.outputs.builder }}
       dependencies: ${{ steps.inputs.outputs.dependencies }}
     steps:
@@ -29,7 +29,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
-      - name: Resolve workflow inputs
+      - name: Resolve statomaten inputs
         id: inputs
         run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
 
@@ -63,7 +63,8 @@ jobs:
             fi
 
   build_and_push:
-    needs: [resolve]
+    if: ${{ needs.statomaten_inputs.outputs.should_build_image == 'true' }}
+    needs: [statomaten_inputs]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,7 +73,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
-          service_account: ${{ needs.resolve.outputs.service_account }}
+          service_account: ${{ needs.statomaten_inputs.outputs.service_account }}
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
       - run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
@@ -81,18 +82,18 @@ jobs:
 
       - name: Build and push
         env:
-          PYVER:      ${{ needs.resolve.outputs.pyver }}
-          BUILDER:    ${{ needs.resolve.outputs.builder }}
-          AR_REPO:    ${{ needs.resolve.outputs.ar_repository }}
+          PYTHON_VERSION: ${{ needs.statomaten_inputs.outputs.python_version }}
+          BUILDER:        ${{ needs.statomaten_inputs.outputs.builder }}
+          AR_REPO:    ${{ needs.statomaten_inputs.outputs.ar_repository }}
           IMAGE_NAME: automation/composer/python
         run: |
           IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
           pack build "${IMAGE}:latest" \
-            --tag "${IMAGE}:${PYVER}" \
-            --tag "${IMAGE}:${PYVER}-${GITHUB_SHA}" \
+            --tag "${IMAGE}:${PYTHON_VERSION}" \
+            --tag "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}" \
             --builder "${BUILDER}" \
-            --env "GOOGLE_RUNTIME_VERSION=${PYVER}" \
+            --env "GOOGLE_RUNTIME_VERSION=${PYTHON_VERSION}" \
             --path .
           docker push "${IMAGE}:latest"
-          docker push "${IMAGE}:${PYVER}"
-          docker push "${IMAGE}:${PYVER}-${GITHUB_SHA}"         done
+          docker push "${IMAGE}:${PYTHON_VERSION}"
+          docker push "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}"
