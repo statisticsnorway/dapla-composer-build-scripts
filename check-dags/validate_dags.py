@@ -1,3 +1,13 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "apache-airflow==3.3.1",
+#   "apache-airflow-providers-cncf-kubernetes==10.18.0",
+#   "pandas>=2.3.3",
+#   "pytest==9.0.3",
+# ]
+# ///
+
 """
 Validate DAG files in a directory before uploading to Cloud Composer.
 Performs import validation, structure validation, and checks for common issues.
