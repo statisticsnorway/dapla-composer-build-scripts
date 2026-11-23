@@ -37,7 +37,6 @@ def outputs():
         "folders_with_changed_dags": " ".join(_changed_dag_folders),
         "python_version": python_version(),
         "builder": builder(),
-        "dependencies": packages(),
         "ar_repository": f"{team_name()}-docker",
         "service_account": service_account(),
     }
@@ -55,12 +54,6 @@ def service_account():
 def pyproject():
     with Path("pyproject.toml").open("rb") as file:
         return tomllib.load(file)
-
-
-def packages():
-    return json.dumps(
-        pyproject()["project"].get("dependencies", []), separators=(",", ":")
-    )
 
 
 def python_version():
