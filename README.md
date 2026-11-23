@@ -1,15 +1,17 @@
 # dapla-composer-build-scripts
 
-Reusable GitHub Actions workflows and composite actions used to build, push and
-deploy the container images that back Dapla Composer sources.
+Reusable GitHub Actions workflows and composite actions used to:
+
+- Build and push container images for Dapla Composer sources.
+- Validate and test Airflow DAGs.
+
+## Image build workflows
 
 Each supported language has its own **self-contained** reusable workflow named
 `<language>-image.yaml`. They all follow the same pattern: read a language
 manifest from the caller's repository, resolve the runtime version and a
 [Cloud Native Buildpacks](https://buildpacks.io/) builder, then build and push
 the image to the team's Artifact Registry (GAR).
-
-## Image build workflows
 
 | Workflow                                                     | Language | Manifest         |
 |--------------------------------------------------------------|----------|------------------|
@@ -115,6 +117,12 @@ workflow the same way `python-image.yaml` is built:
 Because each workflow is self-contained, adding a language never changes the
 existing ones. The team resolution, GCP auth and push steps are simply copied and
 kept in sync across the `<language>-image.yaml` files.
+
+## DAG checks
+
+The reusable [`check-dags.yaml`](.github/workflows/check-dags.yaml) workflow validates changed Airflow DAGs and runs their `pytest` tests on pull requests.
+
+It checks each project under `automation/statomaten/*/dags` and uses the dependencies and validator in [`check-dags/`](check-dags/).
 
 ## Composite action: `wait-for-status`
 
