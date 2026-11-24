@@ -19,7 +19,7 @@ event's base and head commits and decides what to run:
 - **DAG checks** run on pull requests for each changed
   `automation/statomaten/<project>/dags` directory.
 - **Image builds** run for each `automation/statomaten/<project>/pyproject.toml`
-  that changed, on push events only. Pull requests never build or publish
+  that changed, on push events only. Pull requests do not publish
   images. Changes to other files (including lock files) do not trigger a build.
 
 The caller controls which events invoke the workflow. Images are published on
