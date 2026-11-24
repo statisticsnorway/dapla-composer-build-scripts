@@ -81,7 +81,7 @@ def python_version(path):
 def builder(path):
     version = python_version(path)
     try:
-        return builders()[Version(version)]
+        return builders()[Version]
     except KeyError as error:
         raise ValueError(f"Python {version} is not supported") from error
 
