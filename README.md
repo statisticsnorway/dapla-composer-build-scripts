@@ -71,8 +71,7 @@ service account `gh-actions-<team>@artifact-registry-5n.iam.gserviceaccount.com`
 builds from `automation/statomaten/<project>` using
 [Cloud Native Buildpacks](https://buildpacks.io/), and pushes to
 `europe-north1-docker.pkg.dev/artifact-registry-5n/<team>-docker/automation/composer/<project>`
-with the tags `latest`, `<project>-<python_version>` and
-`<project>-<python_version>-<git-sha>`.
+with the tags `latest`, `<python_version>` and `<python_version>-<git-sha>`.
 
 ## DAG checks
 
