@@ -30,16 +30,30 @@ def write_outputs():
 
 
 def outputs():
-    _changed_dag_folders = changed_dag_folders()
+    _dag_directories = dag_directories()
+    _image_configurations = image_configurations()
     return {
-        "should_build_image": str(git_diff("pyproject.toml")).lower(),
-        "should_test_dags": str(bool(_changed_dag_folders)).lower(),
-        "folders_with_changed_dags": " ".join(_changed_dag_folders),
-        "python_version": str(python_version()),
-        "builder": builder(),
+        "should_test_dags": str(bool(_dag_directories)).lower(),
+        "dag_directories": " ".join(_dag_directories),
+        "image_configurations": json.dumps(
+            _image_configurations, separators=(",", ":")
+        ),
         "ar_repository": f"{team_name()}-docker",
         "service_account": service_account(),
     }
+
+
+def image_configurations():
+    return [
+        {
+            "path": str(path.parent),
+            "name": path.parent.name,
+            "python_version": str(python_version(path)),
+            "builder": builder(path),
+        }
+        for path in sorted(Path("automation/statomaten").glob("*/pyproject.toml"))
+        if git_diff(str(path))
+    ]
 
 
 def team_name():
@@ -51,15 +65,17 @@ def service_account():
     return f"gh-actions-{team_name()}@{os.environ['AR_PROJECT_ID']}.iam.gserviceaccount.com"
 
 
-def pyproject():
-    with Path("pyproject.toml").open("rb") as file:
+def pyproject(path):
+    with path.open("rb") as file:
         return tomllib.load(file)
 
 
-def python_version():
-    requirement = SpecifierSet(pyproject()["project"]["requires-python"])
+def python_version(path):
+    requirement = SpecifierSet(pyproject(path)["project"]["requires-python"])
     supported_versions = builders().keys()
-    compatible_versions = (version for version in supported_versions if version in requirement) #intersection of requirement range and supported versions
+    compatible_versions = (
+        version for version in supported_versions if version in requirement
+    )  # intersection of requirement range and supported versions
     try:
         return max(compatible_versions)
     except ValueError as error:
@@ -68,8 +84,8 @@ def python_version():
         ) from error
 
 
-def builder():
-    version = python_version()
+def builder(path):
+    version = python_version(path)
     try:
         return builders()[Version(version)]
     except KeyError as error:
@@ -85,7 +101,7 @@ def builders():
     }
 
 
-def changed_dag_folders():
+def dag_directories():
     return [
         str(path)
         for path in sorted(Path("automation/statomaten").glob("*/dags"))

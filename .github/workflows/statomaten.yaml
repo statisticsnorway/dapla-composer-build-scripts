@@ -16,11 +16,9 @@ jobs:
   statomaten_inputs:
     runs-on: ubuntu-latest
     outputs:
-      should_build_image: ${{ steps.inputs.outputs.should_build_image }}
       should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
-      folders_with_changed_dags: ${{ steps.inputs.outputs.folders_with_changed_dags }}
-      python_version: ${{ steps.inputs.outputs.python_version }}
-      builder: ${{ steps.inputs.outputs.builder }}
+      dag_directories: ${{ steps.inputs.outputs.dag_directories }}
+      image_configurations: ${{ steps.inputs.outputs.image_configurations }}
       ar_repository: ${{ steps.inputs.outputs.ar_repository }}
       service_account: ${{ steps.inputs.outputs.service_account }}
     steps:
@@ -48,11 +46,13 @@ jobs:
       - name: Check DAGs
         run: |
           uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/check-dags/check_dags.py \
-            --dag-directories ${{ needs.statomaten_inputs.outputs.folders_with_changed_dags }}
+            --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
 
   build_and_push:
-    if: ${{ needs.statomaten_inputs.outputs.should_build_image == 'true' }}
     needs: [statomaten_inputs]
+    strategy:
+      matrix:
+        project: ${{ fromJSON(needs.statomaten_inputs.outputs.image_configurations) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,18 +71,18 @@ jobs:
 
       - name: Build and push
         env:
-          PYTHON_VERSION: ${{ needs.statomaten_inputs.outputs.python_version }}
-          BUILDER:        ${{ needs.statomaten_inputs.outputs.builder }}
+          PYTHON_VERSION: ${{ matrix.project.python_version }}
+          BUILDER:        ${{ matrix.project.builder }}
           AR_REPO:    ${{ needs.statomaten_inputs.outputs.ar_repository }}
-          IMAGE_NAME: automation/composer/python
+          IMAGE_NAME: automation/composer/${{ matrix.project.name }}
         run: |
           IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
           pack build "${IMAGE}:latest" \
-            --tag "${IMAGE}:${PYTHON_VERSION}" \
-            --tag "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}" \
+            --tag "${IMAGE}:${{ matrix.project.name }}-${PYTHON_VERSION}" \
+            --tag "${IMAGE}:${{ matrix.project.name }}-${PYTHON_VERSION}-${GITHUB_SHA}" \
             --builder "${BUILDER}" \
             --env "GOOGLE_RUNTIME_VERSION=${PYTHON_VERSION}" \
-            --path .
+            --path "${{ matrix.project.path }}"
           docker push "${IMAGE}:latest"
-          docker push "${IMAGE}:${PYTHON_VERSION}"
-          docker push "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}"
+          docker push "${IMAGE}:${{ matrix.project.name }}-${PYTHON_VERSION}"
+          docker push "${IMAGE}:${{ matrix.project.name }}-${PYTHON_VERSION}-${GITHUB_SHA}"
