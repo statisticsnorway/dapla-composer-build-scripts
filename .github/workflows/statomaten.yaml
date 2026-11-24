@@ -29,6 +29,8 @@ jobs:
 
       - name: Resolve statomaten inputs
         id: inputs
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
         run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
 
   check-dags:

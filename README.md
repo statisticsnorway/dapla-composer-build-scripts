@@ -19,12 +19,12 @@ event's base and head commits and decides what to run:
 - **DAG checks** run on pull requests for each changed
   `automation/statomaten/<project>/dags` directory.
 - **Image builds** run for each `automation/statomaten/<project>/pyproject.toml`
-  that changed, on any event that invokes the workflow. Changes to other files
-  (including lock files) do not trigger a build.
+  that changed, on push events only. Pull requests never build or publish
+  images. Changes to other files (including lock files) do not trigger a build.
 
-The caller controls which events invoke the workflow. Since a changed
-`pyproject.toml` on a pull request also publishes an image, only invoke the
-workflow for trusted code with access to the required Google Cloud identity.
+The caller controls which events invoke the workflow. Images are published on
+every push the caller listens to, so limit `push` to trusted branches such as
+`main`.
 
 ### Example usage
 
