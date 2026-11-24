@@ -5,39 +5,83 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  AR_PROJECT_ID: artifact-registry-5n
+  AR_LOCATION: europe-north1
+  GCP_WIF_PROVIDER: projects/848539402404/locations/global/workloadIdentityPools/gh-actions/providers/gh-actions
 
 jobs:
+  statomaten_inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
+      dag_directories: ${{ steps.inputs.outputs.dag_directories }}
+      image_configurations: ${{ steps.inputs.outputs.image_configurations }}
+      team_name: ${{ steps.inputs.outputs.team_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Resolve statomaten inputs
+        id: inputs
+        run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
+
   check-dags:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && needs.statomaten_inputs.outputs.should_test_dags == 'true' }}
+    needs: [statomaten_inputs]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Clone check scripts
-        run: git clone -b main --depth 1 https://github.com/statisticsnorway/dapla-composer-build-scripts
-
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.11'
-
-      - name: Install check dependencies
-        run: python -m pip install -r dapla-composer-build-scripts/check-dags/requirements.txt
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: Check DAGs
         run: |
-          set -euo pipefail
-          git fetch origin "${{ github.base_ref }}"
-          for dags_directory in automation/statomaten/*/dags; do
-            [ -d "$dags_directory" ] || continue
-            if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "$dags_directory"; then
-              echo "Skipping unchanged $dags_directory"
-              continue
-            fi
-            echo "Checking $dags_directory"
-            python dapla-composer-build-scripts/check-dags/validate_dags.py --dags_directory="$dags_directory"
-            if [ -d "$dags_directory/test" ]; then
-              (cd "$dags_directory" && python -m pytest -s test/)
-            fi
-          done
+          uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/check-dags/check_dags.py \
+            --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
+
+  build_and_push:
+    needs: [statomaten_inputs]
+    strategy:
+      matrix:
+        project: ${{ fromJSON(needs.statomaten_inputs.outputs.image_configurations) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: gh-actions-${{ needs.statomaten_inputs.outputs.team_name }}@${{ env.AR_PROJECT_ID }}.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: buildpacks/github-actions/setup-pack@a96fc9720ee9ccf19d4c87c3de9c344a2c404c29 # v6.2.0
+
+      - name: Build and push
+        env:
+          PYTHON_VERSION: ${{ matrix.project.python_version }}
+          BUILDER:        ${{ matrix.project.builder }}
+          AR_REPO:    ${{ needs.statomaten_inputs.outputs.team_name }}-docker
+          IMAGE_NAME: automation/composer/${{ matrix.project.name }}
+        run: |
+          IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          pack build "${IMAGE}:latest" \
+            --tag "${IMAGE}:${PYTHON_VERSION}" \
+            --tag "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}" \
+            --builder "${BUILDER}" \
+            --env "GOOGLE_RUNTIME_VERSION=${PYTHON_VERSION}" \
+            --path "${{ matrix.project.path }}"
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${PYTHON_VERSION}"
+          docker push "${IMAGE}:${PYTHON_VERSION}-${GITHUB_SHA}"

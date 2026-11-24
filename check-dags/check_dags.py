@@ -1,3 +1,13 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "apache-airflow==3.3.1",
+#   "apache-airflow-providers-cncf-kubernetes==10.18.0",
+#   "pandas>=2.3.3",
+#   "pytest==9.0.3",
+# ]
+# ///
+
 """
 Validate DAG files in a directory before uploading to Cloud Composer.
 Performs import validation, structure validation, and checks for common issues.
@@ -6,6 +16,7 @@ Performs import validation, structure validation, and checks for common issues.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -227,15 +238,24 @@ def main():
         description="Validate DAG files before uploading to Cloud Composer"
     )
     parser.add_argument(
-        "--dags_directory",
+        "--dag-directories",
         required=True,
-        help="Path to the directory containing DAG files",
+        nargs="+",
+        help="Paths to directories containing DAG files",
     )
 
     args = parser.parse_args()
-
-    validator = DAGValidator(args.dags_directory)
-    success = validator.validate_all()
+    success = True
+    for directory in args.dag_directories:
+        directory_success = DAGValidator(directory).validate_all()
+        if directory_success and (Path(directory) / "test").is_dir():
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", "-s", "test/"],
+                cwd=directory,
+                check=False,
+            )
+            directory_success = result.returncode == 0
+        success = directory_success and success
 
     sys.exit(0 if success else 1)
 
