@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dapla-composer-build-scripts
+  title: Statomaten build scripts
+  description: |
+    Reusable workflows that validate and test Airflow DAGs and build the container images used by the Statomaten service.
+  tags:
+    - python
+    - pipeline
+  annotations:
+    github.com/project-slug: statisticsnorway/dapla-composer-build-scripts
+  links:
+    - url: https://statisticsnorway.github.io/statomaten-system/
+      title: Documentation (Statomaten system)
+      icon: docs
+spec:
+  type: scripts
+  system: statomaten
+  owner: dapla-stat-developers
+  lifecycle: experimental
