@@ -19,8 +19,7 @@ jobs:
       should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
       dag_directories: ${{ steps.inputs.outputs.dag_directories }}
       image_configurations: ${{ steps.inputs.outputs.image_configurations }}
-      ar_repository: ${{ steps.inputs.outputs.ar_repository }}
-      service_account: ${{ steps.inputs.outputs.service_account }}
+      team_name: ${{ steps.inputs.outputs.team_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,7 +60,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
-          service_account: ${{ needs.statomaten_inputs.outputs.service_account }}
+          service_account: gh-actions-${{ needs.statomaten_inputs.outputs.team_name }}@${{ env.AR_PROJECT_ID }}.iam.gserviceaccount.com
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
       - run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
@@ -73,7 +72,7 @@ jobs:
         env:
           PYTHON_VERSION: ${{ matrix.project.python_version }}
           BUILDER:        ${{ matrix.project.builder }}
-          AR_REPO:    ${{ needs.statomaten_inputs.outputs.ar_repository }}
+          AR_REPO:    ${{ needs.statomaten_inputs.outputs.team_name }}-docker
           IMAGE_NAME: automation/composer/${{ matrix.project.name }}
         run: |
           IMAGE="${AR_LOCATION}-docker.pkg.dev/${AR_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"

@@ -31,15 +31,13 @@ def write_outputs():
 
 def outputs():
     _dag_directories = dag_directories()
-    _image_configurations = image_configurations()
     return {
         "should_test_dags": str(bool(_dag_directories)).lower(),
         "dag_directories": " ".join(_dag_directories),
         "image_configurations": json.dumps(
-            _image_configurations, separators=(",", ":")
+            image_configurations(), separators=(",", ":")
         ),
-        "ar_repository": f"{team_name()}-docker",
-        "service_account": service_account(),
+        "team_name": team_name(),
     }
 
 
@@ -59,10 +57,6 @@ def image_configurations():
 def team_name():
     with Path("metadata/team-info.yaml").open(encoding="utf-8") as file:
         return yaml.safe_load(file)["metadata"]["team_name"]
-
-
-def service_account():
-    return f"gh-actions-{team_name()}@{os.environ['AR_PROJECT_ID']}.iam.gserviceaccount.com"
 
 
 def pyproject(path):
