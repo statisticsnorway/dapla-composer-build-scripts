@@ -29,6 +29,8 @@ jobs:
 
       - name: Resolve statomaten inputs
         id: inputs
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
         run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
 
   check-dags:
@@ -48,6 +50,7 @@ jobs:
             --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
 
   build_and_push:
+    if: ${{ github.event_name == 'push' }}
     needs: [statomaten_inputs]
     strategy:
       matrix:
