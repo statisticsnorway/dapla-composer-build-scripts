@@ -30,15 +30,50 @@ def write_outputs():
 
 
 def outputs():
-    _dag_directories = dag_directories()
+    configurations = dag_configurations()
     return {
-        "should_test_dags": str(bool(_dag_directories)).lower(),
-        "dag_directories": " ".join(_dag_directories),
+        "should_test_dags": str(bool(configurations)).lower(),
+        "dag_directories": " ".join(
+            configuration["dag_folder_path"] for configuration in configurations
+        ),
+        "dag_configurations": json.dumps(configurations, separators=(",", ":")),
         "image_configurations": json.dumps(
             image_configurations(), separators=(",", ":")
         ),
-        "team_name": team_name(),
     }
+
+
+def dag_configurations():
+    return [
+        {
+            "project_id": project_id(path.parent.name),
+            "project_name": path.parent.name,
+            "dag_folder_path": str(path),
+        }
+        for path in sorted(Path("automation/statomaten").glob("*/dags"))
+        if path.is_dir() and git_diff(str(path))
+    ]
+
+
+def project_id(project_name):
+    result = subprocess.run(
+        [
+            "gcloud",
+            "projects",
+            "list",
+            f"--filter=name:{project_name}",
+            "--format=value(projectId)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    project_ids = result.stdout.splitlines()
+    if len(project_ids) != 1:
+        raise ValueError(
+            f"Expected one project with display name {project_name}, found {project_ids}"
+        )
+    return project_ids[0]
 
 
 def image_configurations():
@@ -52,11 +87,6 @@ def image_configurations():
         for path in sorted(Path("automation/statomaten").glob("*/pyproject.toml"))
         if git_diff(str(path.parent), f":(exclude){path.parent / 'dags'}")
     ]
-
-
-def team_name():
-    with Path("metadata/team-info.yaml").open(encoding="utf-8") as file:
-        return yaml.safe_load(file)["metadata"]["team_name"]
 
 
 def pyproject(path):
