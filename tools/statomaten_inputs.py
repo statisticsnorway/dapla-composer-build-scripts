@@ -31,7 +31,7 @@ def write_outputs():
 def outputs():
     _dag_configurations = dag_configurations()
     return {
-        "should_test_dags": str(bool(_dag_configurations)).lower(),
+        "has_changed_dags": str(bool(_dag_configurations)).lower(),
         "dag_directories": " ".join(
             configuration["dag_folder_path"] for configuration in _dag_configurations
         ),

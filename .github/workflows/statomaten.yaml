@@ -16,7 +16,7 @@ jobs:
   statomaten_inputs:
     runs-on: ubuntu-latest
     outputs:
-      should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
+      has_changed_dags: ${{ steps.inputs.outputs.has_changed_dags }}
       dag_directories: ${{ steps.inputs.outputs.dag_directories }}
       dag_upload_configurations: ${{ steps.inputs.outputs.dag_upload_configurations }}
       image_configurations: ${{ steps.inputs.outputs.image_configurations }}
@@ -46,7 +46,7 @@ jobs:
         run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
 
   check-dags:
-    if: ${{ github.event_name == 'pull_request' && needs.statomaten_inputs.outputs.should_test_dags == 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.statomaten_inputs.outputs.has_changed_dags == 'true' }}
     needs: [statomaten_inputs]
     runs-on: ubuntu-latest
     steps:
@@ -62,7 +62,7 @@ jobs:
             --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
 
   upload-dags:
-    if: ${{ github.event_name == 'push' && needs.statomaten_inputs.outputs.should_test_dags == 'true' }}
+    if: ${{ github.event_name == 'push' && needs.statomaten_inputs.outputs.has_changed_dags == 'true' }}
     needs: [statomaten_inputs]
     strategy:
       matrix:
