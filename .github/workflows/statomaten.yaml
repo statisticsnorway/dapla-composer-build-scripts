@@ -50,7 +50,7 @@ jobs:
             --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
 
   build_and_push:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && needs.statomaten_inputs.outputs.image_configurations != '[]' }}
     needs: [statomaten_inputs]
     strategy:
       matrix:
