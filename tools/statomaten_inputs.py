@@ -29,13 +29,13 @@ def write_outputs():
 
 
 def outputs():
-    configurations = dag_configurations()
+    _dag_configurations = dag_configurations()
     return {
-        "should_test_dags": str(bool(configurations)).lower(),
+        "should_test_dags": str(bool(_dag_configurations)).lower(),
         "dag_directories": " ".join(
-            configuration["dag_folder_path"] for configuration in configurations
+            configuration["dag_folder_path"] for configuration in _dag_configurations
         ),
-        "dag_upload_configurations": json.dumps(configurations, separators=(",", ":")),
+        "dag_upload_configurations": json.dumps(_dag_configurations, separators=(",", ":")),
         "image_configurations": json.dumps(
             image_configurations(), separators=(",", ":")
         ),
