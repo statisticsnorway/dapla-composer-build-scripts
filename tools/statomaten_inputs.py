@@ -10,7 +10,6 @@ import sys
 import tomllib
 from pathlib import Path
 
-import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
@@ -36,7 +35,7 @@ def outputs():
         "dag_directories": " ".join(
             configuration["dag_folder_path"] for configuration in configurations
         ),
-        "dag_configurations": json.dumps(configurations, separators=(",", ":")),
+        "dag_upload_configurations": json.dumps(configurations, separators=(",", ":")),
         "image_configurations": json.dumps(
             image_configurations(), separators=(",", ":")
         ),
@@ -123,14 +122,6 @@ def builders():
         Version("3.12"): "gcr.io/buildpacks/builder:google-22",
         Version("3.11"): "gcr.io/buildpacks/builder:google-22",
     }
-
-
-def dag_directories():
-    return [
-        str(path)
-        for path in sorted(Path("automation/statomaten").glob("*/dags"))
-        if path.is_dir() and git_diff(str(path))
-    ]
 
 
 def git_diff(*paths):

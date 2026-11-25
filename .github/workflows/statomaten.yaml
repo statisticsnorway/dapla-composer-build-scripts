@@ -18,7 +18,7 @@ jobs:
     outputs:
       should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
       dag_directories: ${{ steps.inputs.outputs.dag_directories }}
-      dag_configurations: ${{ steps.inputs.outputs.dag_configurations }}
+      dag_upload_configurations: ${{ steps.inputs.outputs.dag_upload_configurations }}
       image_configurations: ${{ steps.inputs.outputs.image_configurations }}
       team_name: ${{ steps.team.outputs.team_name }}
     steps:
@@ -66,7 +66,7 @@ jobs:
     needs: [statomaten_inputs]
     strategy:
       matrix:
-        project: ${{ fromJSON(needs.statomaten_inputs.outputs.dag_configurations) }}
+        project: ${{ fromJSON(needs.statomaten_inputs.outputs.dag_upload_configurations) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
