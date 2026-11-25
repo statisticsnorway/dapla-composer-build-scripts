@@ -50,7 +50,7 @@ def image_configurations():
             "builder": builder(path),
         }
         for path in sorted(Path("automation/statomaten").glob("*/pyproject.toml"))
-        if git_diff(str(path))
+        if git_diff(str(path.parent), f":(exclude){path.parent / 'dags'}")
     ]
 
 
@@ -103,9 +103,9 @@ def dag_directories():
     ]
 
 
-def git_diff(path):
+def git_diff(*paths):
     result = subprocess.run(
-        ["git", "diff", "--quiet", base_sha(), head_sha(), "--", path],
+        ["git", "diff", "--quiet", base_sha(), head_sha(), "--", *paths],
         check=False,
     )
     return result.returncode != 0
