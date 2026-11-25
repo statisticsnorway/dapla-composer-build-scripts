@@ -75,6 +75,8 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: dapla-dag-uploader@${{ matrix.project.project_id }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          project_id: ${{ matrix.project.project_id }}
       - name: Upload DAGs
         env:
           BUCKET: ssb-${{ needs.statomaten_inputs.outputs.team_name }}-automation-composer
