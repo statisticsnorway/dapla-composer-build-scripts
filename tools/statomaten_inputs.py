@@ -4,9 +4,9 @@
 # ///
 
 import json
+import logging
 import os
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
 
@@ -14,18 +14,25 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
+
 def main():
     try:
         write_outputs()
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        print(error, file=sys.stderr)
-        raise SystemExit(1) from error
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        logger.exception("Failed to resolve Statomaten inputs")
+        raise SystemExit(1)
 
 
 def write_outputs():
+    resolved_outputs = outputs()
+    for name, value in resolved_outputs.items():
+        logger.info("%s=%s", name, value)
     output_file = os.environ["GITHUB_OUTPUT"]
     with Path(output_file).open("a", encoding="utf-8") as file:
-        file.writelines(f"{name}={value}\n" for name, value in outputs().items())
+        file.writelines(f"{name}={value}\n" for name, value in resolved_outputs.items())
 
 
 def outputs():
