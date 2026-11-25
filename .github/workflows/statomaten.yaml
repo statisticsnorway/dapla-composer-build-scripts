@@ -16,16 +16,28 @@ jobs:
   statomaten_inputs:
     runs-on: ubuntu-latest
     outputs:
-      should_test_dags: ${{ steps.inputs.outputs.should_test_dags }}
+      has_changed_dags: ${{ steps.inputs.outputs.has_changed_dags }}
       dag_directories: ${{ steps.inputs.outputs.dag_directories }}
+      dag_upload_configurations: ${{ steps.inputs.outputs.dag_upload_configurations }}
       image_configurations: ${{ steps.inputs.outputs.image_configurations }}
-      team_name: ${{ steps.inputs.outputs.team_name }}
+      team_name: ${{ steps.team.outputs.team_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Resolve team name
+        id: team
+        run: echo "team_name=$(yq '.metadata.team_name' metadata/team-info.yaml)" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: gh-actions-${{ steps.team.outputs.team_name }}@${{ env.AR_PROJECT_ID }}.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Resolve statomaten inputs
         id: inputs
@@ -34,7 +46,7 @@ jobs:
         run: uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/tools/statomaten_inputs.py
 
   check-dags:
-    if: ${{ github.event_name == 'pull_request' && needs.statomaten_inputs.outputs.should_test_dags == 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.statomaten_inputs.outputs.has_changed_dags == 'true' }}
     needs: [statomaten_inputs]
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +60,27 @@ jobs:
         run: |
           uv run https://raw.githubusercontent.com/statisticsnorway/dapla-composer-build-scripts/main/check-dags/check_dags.py \
             --dag-directories ${{ needs.statomaten_inputs.outputs.dag_directories }}
+
+  upload-dags:
+    if: ${{ github.event_name == 'push' && needs.statomaten_inputs.outputs.has_changed_dags == 'true' }}
+    needs: [statomaten_inputs]
+    strategy:
+      matrix:
+        project: ${{ fromJSON(needs.statomaten_inputs.outputs.dag_upload_configurations) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: dapla-dag-uploader@${{ matrix.project.project_id }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          project_id: ${{ matrix.project.project_id }}
+      - name: Upload DAGs
+        env:
+          BUCKET: ssb-${{ needs.statomaten_inputs.outputs.team_name }}-automation-composer
+        run: gcloud storage rsync "${{ matrix.project.dag_folder_path }}" "gs://${BUCKET}/dags" --delete-unmatched-destination-objects
 
   build_and_push:
     if: ${{ github.event_name == 'push' && needs.statomaten_inputs.outputs.image_configurations != '[]' }}

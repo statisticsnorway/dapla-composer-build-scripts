@@ -4,41 +4,82 @@
 # ///
 
 import json
+import logging
 import os
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
 
-import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def main():
     try:
         write_outputs()
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        print(error, file=sys.stderr)
-        raise SystemExit(1) from error
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        logger.exception("Failed to resolve Statomaten inputs")
+        raise SystemExit(1)
 
 
 def write_outputs():
+    resolved_outputs = outputs()
+    for name, value in resolved_outputs.items():
+        logger.info("%s=%s", name, value)
     output_file = os.environ["GITHUB_OUTPUT"]
     with Path(output_file).open("a", encoding="utf-8") as file:
-        file.writelines(f"{name}={value}\n" for name, value in outputs().items())
+        file.writelines(f"{name}={value}\n" for name, value in resolved_outputs.items())
 
 
 def outputs():
-    _dag_directories = dag_directories()
+    _dag_configurations = dag_configurations()
     return {
-        "should_test_dags": str(bool(_dag_directories)).lower(),
-        "dag_directories": " ".join(_dag_directories),
+        "has_changed_dags": str(bool(_dag_configurations)).lower(),
+        "dag_directories": " ".join(
+            configuration["dag_folder_path"] for configuration in _dag_configurations
+        ),
+        "dag_upload_configurations": json.dumps(_dag_configurations, separators=(",", ":")),
         "image_configurations": json.dumps(
             image_configurations(), separators=(",", ":")
         ),
-        "team_name": team_name(),
     }
+
+
+def dag_configurations():
+    return [
+        {
+            "project_id": project_id(path.parent.name),
+            "project_name": path.parent.name,
+            "dag_folder_path": str(path),
+        }
+        for path in sorted(Path("automation/statomaten").glob("*/dags"))
+        if path.is_dir() and git_diff(str(path))
+    ]
+
+
+def project_id(project_name):
+    result = subprocess.run(
+        [
+            "gcloud",
+            "projects",
+            "list",
+            f"--filter=name:{project_name}",
+            "--format=value(projectId)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    project_ids = result.stdout.splitlines()
+    if len(project_ids) != 1:
+        raise ValueError(
+            f"Expected one project with display name {project_name}, found {project_ids}"
+        )
+    return project_ids[0]
 
 
 def image_configurations():
@@ -52,11 +93,6 @@ def image_configurations():
         for path in sorted(Path("automation/statomaten").glob("*/pyproject.toml"))
         if git_diff(str(path.parent), f":(exclude){path.parent / 'dags'}")
     ]
-
-
-def team_name():
-    with Path("metadata/team-info.yaml").open(encoding="utf-8") as file:
-        return yaml.safe_load(file)["metadata"]["team_name"]
 
 
 def pyproject(path):
@@ -93,14 +129,6 @@ def builders():
         Version("3.12"): "gcr.io/buildpacks/builder:google-22",
         Version("3.11"): "gcr.io/buildpacks/builder:google-22",
     }
-
-
-def dag_directories():
-    return [
-        str(path)
-        for path in sorted(Path("automation/statomaten").glob("*/dags"))
-        if path.is_dir() and git_diff(str(path))
-    ]
 
 
 def git_diff(*paths):
