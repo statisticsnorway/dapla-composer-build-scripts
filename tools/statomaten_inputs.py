@@ -62,12 +62,15 @@ def dag_configurations():
 
 
 def project_id(project_name):
+    team_name, environment = project_name.rsplit("-", 1)
+    environment_code = environment[0]
+    google_project_name = f"{team_name}-{environment_code}"
     result = subprocess.run(
         [
             "gcloud",
             "projects",
             "list",
-            f"--filter=name:{project_name}",
+            f"--filter=name:{google_project_name}",
             "--format=value(projectId)",
         ],
         check=True,
